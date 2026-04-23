@@ -1,119 +1,65 @@
 import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import Card from './components/Card'
+import NasaModal from './components/NasaModal'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [images, setImages] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(null)
+  const [selected, setSelected] = useState(null)
+
+  const getVideoThumbnail = (item) => {
+    if (item.thumbnail_url) return item.thumbnail_url
+    const match = item.url.match(/embed\/([^?]+)/)
+    if (match) return `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg`
+    return null
+  }
+
+  const fetchImages = async (attempt = 1) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch('https://api.nasa.gov/planetary/apod?count=10&api_key=01wuxrezLwzWxzerqY9i5I15y4zPHXRTPL2cq3yw')
+      if (!res.ok) throw new Error(`API error ${res.status}`)
+      const data = await res.json()
+      if (!data.length) throw new Error('No results returned')
+      setImages(data)
+      setLoading(false)
+    } catch {
+      if (attempt < 3) {
+        setTimeout(() => fetchImages(attempt + 1), 2000)
+      } else {
+        setError('Failed to load images. Try again.')
+        setLoading(false)
+      }
+    }
+  }
+
+  const toCardProps = (item) => ({
+    image: item.media_type === 'video' ? getVideoThumbnail(item) : item.url,
+    title: item.title,
+    description: item.explanation,
+    mediaType: item.media_type,
+    videoUrl: item.url,
+  })
 
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
+      <div className="cards">
+        <button onClick={fetchImages} disabled={loading}>
+          {loading ? 'Loading...' : 'Get NASA Images'}
         </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+        {images.map(item => (
+          <Card
+            key={item.date}
+            props={toCardProps(item)}
+            onClick={() => setSelected(toCardProps(item))}
+          />
+        ))}
+      </div>
+      {error && <p className="error">{error}</p>}
+      {selected && <NasaModal card={selected} onClose={() => setSelected(null)} />}
     </>
   )
 }
